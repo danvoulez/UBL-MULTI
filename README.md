@@ -45,3 +45,10 @@ Default mode enables extension APIs for partner integration:
 - Advisor/Audit endpoints (when enabled by env)
 
 See `docs/THIRD_PARTY_SURFACE.md`.
+
+## Documentation
+- `docs/OPERATING_MODEL.md`
+- `docs/SYNC_WITH_CORE.md`
+- `docs/CONFIG_PROFILES.md`
+- `docs/SLO_MONITORING.md`
+- `docs/RELEASE_CHECKLIST.md`
