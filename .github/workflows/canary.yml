@@ -1,0 +1,80 @@
+name: Canary Core-Only
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: canary-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      REQUIRE_UNC1_NUMERIC: "true"
+      F64_IMPORT_MODE: "reject"
+      UBL_FEATURE_AUDIT_ENABLED: "false"
+      UBL_FEATURE_ADVISOR_ENABLED: "false"
+      UBL_FEATURE_MCP_ENABLED: "false"
+      RUST_LOG: "info"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Start Gate (core-only)
+        run: |
+          cargo run --manifest-path vendor/ubl-core/Cargo.toml -p ubl_gate > /tmp/ubl_gate_canary.log 2>&1 &
+          echo "GATE_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for health
+        run: |
+          for i in {1..50}; do
+            if curl -fsS http://127.0.0.1:4000/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Gate did not become healthy" >&2
+          exit 1
+
+      - name: Smoke chip submission
+        run: |
+          status=$(curl -sS -o /tmp/smoke.json -w "%{http_code}" \
+            -X POST http://127.0.0.1:4000/v1/chips \
+            -H "content-type: application/json" \
+            -d '{"@type":"ubl/document","@id":"canary-1","@ver":"1.0","@world":"a/test/t/main","title":"canary"}')
+          if [[ "$status" != "200" ]]; then
+            echo "Unexpected status: $status" >&2
+            cat /tmp/smoke.json || true
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          with open('/tmp/smoke.json', 'r', encoding='utf-8') as f:
+              payload = json.load(f)
+          assert payload.get("receipt_cid"), "missing receipt_cid"
+          print("Canary receipt:", payload["receipt_cid"])
+          PY
+
+      - name: Stop Gate
+        if: always()
+        run: |
+          if [[ -n "${GATE_PID:-}" ]]; then
+            kill "${GATE_PID}" || true
+          fi
+
+      - name: Upload canary logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-core-only-logs
+          path: |
+            /tmp/ubl_gate_canary.log
+            /tmp/smoke.json

@@ -34,6 +34,10 @@ make core-sync-main   # move submodule to latest main
 make core-sync-tag TAG=v0.1.0
 ```
 
+Automation:
+- `sync-core.yml` opens PRs syncing `vendor/ubl-core` (main on schedule, tag via manual dispatch).
+- `canary.yml` runs a core-only runtime smoke test on PRs.
+
 ## Third-Party Surface
 Default mode enables extension APIs for partner integration:
 - API: `/v1/chips`, `/v1/receipts/*`, `/v1/events*`

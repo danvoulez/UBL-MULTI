@@ -2,6 +2,19 @@ name: Sync UBL-CORE
 
 on:
   workflow_dispatch:
+    inputs:
+      track:
+        description: "Sync mode: main (dev) or tag (prod)"
+        required: true
+        default: "main"
+        type: choice
+        options:
+          - main
+          - tag
+      tag:
+        description: "Tag to sync when track=tag (example: v1.0.0)"
+        required: false
+        type: string
   schedule:
     - cron: "0 7 * * 1-5"
 
@@ -18,18 +31,32 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Update submodule to latest main
+      - name: Update submodule target
+        id: sync_target
         run: |
-          git -C vendor/ubl-core fetch origin main
-          git -C vendor/ubl-core checkout origin/main
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule" || "${{ github.event.inputs.track }}" == "main" || -z "${{ github.event.inputs.track }}" ]]; then
+            git -C vendor/ubl-core fetch origin main
+            git -C vendor/ubl-core checkout origin/main
+            echo "target_ref=main" >> "$GITHUB_OUTPUT"
+          else
+            if [[ -z "${{ github.event.inputs.tag }}" ]]; then
+              echo "tag input is required when track=tag" >&2
+              exit 1
+            fi
+            git -C vendor/ubl-core fetch --tags origin
+            git -C vendor/ubl-core checkout "tags/${{ github.event.inputs.tag }}"
+            echo "target_ref=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
           git add vendor/ubl-core
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-          commit-message: "chore(core): sync vendor/ubl-core to latest main"
-          title: "chore(core): sync vendor/ubl-core"
+          commit-message: "chore(core): sync vendor/ubl-core to ${{ steps.sync_target.outputs.target_ref }}"
+          title: "chore(core): sync vendor/ubl-core (${{ steps.sync_target.outputs.target_ref }})"
           body: |
-            Automated submodule sync from `LogLine-Foundation/UBL-CORE` main branch.
-          branch: chore/sync-ubl-core
+            Automated submodule sync from `LogLine-Foundation/UBL-CORE`.
+
+            Target: `${{ steps.sync_target.outputs.target_ref }}`
+          branch: chore/sync-ubl-core-${{ steps.sync_target.outputs.target_ref }}
           delete-branch: true

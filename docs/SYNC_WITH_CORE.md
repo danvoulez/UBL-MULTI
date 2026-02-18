@@ -25,3 +25,10 @@ make multi-kat
 - Development: track upstream `main`.
 - Production: pin to signed release tags.
 - Always attach submodule SHA in release notes.
+
+## Automated Sync
+- Scheduled workflow syncs `vendor/ubl-core` to `main`.
+- Manual workflow dispatch supports:
+  - `track=main` for dev cadence
+  - `track=tag` + `tag=vX.Y.Z` for production pinning
+- Every sync opens a PR for review.
