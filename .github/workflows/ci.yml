@@ -1,0 +1,54 @@
+name: UBL-MULTI CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: multi-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  REQUIRE_UNC1_NUMERIC: "true"
+  F64_IMPORT_MODE: "reject"
+  UBL_FEATURE_AUDIT_ENABLED: "true"
+  UBL_FEATURE_ADVISOR_ENABLED: "true"
+  UBL_FEATURE_MCP_ENABLED: "true"
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+            vendor/ubl-core/target/
+          key: ${{ runner.os }}-multi-${{ hashFiles('vendor/ubl-core/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-multi-
+
+      - name: Build
+        run: make multi-build
+
+      - name: Test
+        run: make multi-test
+
+      - name: KAT
+        run: make multi-kat

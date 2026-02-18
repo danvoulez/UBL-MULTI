@@ -1,0 +1,35 @@
+name: Sync UBL-CORE
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1-5"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Update submodule to latest main
+        run: |
+          git -C vendor/ubl-core fetch origin main
+          git -C vendor/ubl-core checkout origin/main
+          git add vendor/ubl-core
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore(core): sync vendor/ubl-core to latest main"
+          title: "chore(core): sync vendor/ubl-core"
+          body: |
+            Automated submodule sync from `LogLine-Foundation/UBL-CORE` main branch.
+          branch: chore/sync-ubl-core
+          delete-branch: true

@@ -1,0 +1,3 @@
+[submodule "vendor/ubl-core"]
+	path = vendor/ubl-core
+	url = https://github.com/LogLine-Foundation/UBL-CORE.git
